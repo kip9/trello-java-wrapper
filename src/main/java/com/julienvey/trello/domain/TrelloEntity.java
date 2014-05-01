@@ -7,10 +7,10 @@ import com.julienvey.trello.Trello;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class TrelloEntity {
 
-    @JsonIgnore
-    protected Trello trelloService;
+  @JsonIgnore
+  protected Trello trelloService;
 
-    public void setInternalTrello(Trello trelloService) {
-        this.trelloService = trelloService;
-    }
+  public void setInternalTrello(Trello trelloService) {
+    this.trelloService = trelloService;
+  }
 }

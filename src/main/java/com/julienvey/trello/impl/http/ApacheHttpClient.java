@@ -18,80 +18,80 @@ import java.net.URI;
 
 public class ApacheHttpClient extends AbstractHttpClient {
 
-    private DefaultHttpClient httpClient;
-    private ObjectMapper mapper;
+  private DefaultHttpClient httpClient;
+  private ObjectMapper mapper;
 
-    public ApacheHttpClient() {
-        this(new DefaultHttpClient());
+  public ApacheHttpClient() {
+    this(new DefaultHttpClient());
+  }
+
+  public ApacheHttpClient(DefaultHttpClient httpClient) {
+    this.httpClient = httpClient;
+    this.mapper = new ObjectMapper();
+  }
+
+  @Override
+  public <T> T get(String url, Class<T> objectClass, String... params) {
+    HttpGet httpGet = new HttpGet(expandUrl(url, params));
+    return getEntityAndReleaseConnection(objectClass, httpGet);
+  }
+
+  @Override
+  public <T> T postForObject(String url, T object, Class<T> objectClass, String... params) {
+    HttpPost httpPost = new HttpPost(expandUrl(url, params));
+
+    try {
+      HttpEntity entity = new ByteArrayEntity(this.mapper.writeValueAsBytes(object), ContentType.APPLICATION_JSON);
+      httpPost.setEntity(entity);
+
+      return getEntityAndReleaseConnection(objectClass, httpPost);
+    } catch (JsonProcessingException e) {
+      // TODO : custom exception
+      throw new RuntimeException(e);
     }
+  }
 
-    public ApacheHttpClient(DefaultHttpClient httpClient) {
-        this.httpClient = httpClient;
-        this.mapper = new ObjectMapper();
+  @Override
+  public URI postForLocation(String url, Object object, String... params) {
+    HttpPost httpPost = new HttpPost(expandUrl(url, params));
+
+    try {
+      HttpEntity entity = new ByteArrayEntity(this.mapper.writeValueAsBytes(object), ContentType.APPLICATION_JSON);
+      httpPost.setEntity(entity);
+      HttpResponse httpResponse = this.httpClient.execute(httpPost);
+
+      Header location = httpResponse.getFirstHeader("Location");
+      if (location != null) {
+        return URI.create(location.getValue());
+      } else {
+        // TODO : error
+        throw new NullPointerException();
+      }
+    } catch (JsonProcessingException e) {
+      // TODO : custom exception
+      throw new RuntimeException(e);
+    } catch (IOException e) {
+      throw new TrelloHttpException(e);
+    } finally {
+      httpPost.releaseConnection();
     }
+  }
 
-    @Override
-    public <T> T get(String url, Class<T> objectClass, String... params) {
-        HttpGet httpGet = new HttpGet(expandUrl(url, params));
-        return getEntityAndReleaseConnection(objectClass, httpGet);
+  private <T> T getEntityAndReleaseConnection(Class<T> objectClass, HttpRequestBase httpRequest) {
+    try {
+      HttpResponse httpResponse = this.httpClient.execute(httpRequest);
+
+      HttpEntity httpEntity = httpResponse.getEntity();
+      if (httpEntity != null) {
+        return this.mapper.readValue(httpEntity.getContent(), objectClass);
+      } else {
+        // TODO : error
+        throw new NullPointerException();
+      }
+    } catch (IOException e) {
+      throw new TrelloHttpException(e);
+    } finally {
+      httpRequest.releaseConnection();
     }
-
-    @Override
-    public <T> T postForObject(String url, T object, Class<T> objectClass, String... params) {
-        HttpPost httpPost = new HttpPost(expandUrl(url, params));
-
-        try {
-            HttpEntity entity = new ByteArrayEntity(this.mapper.writeValueAsBytes(object), ContentType.APPLICATION_JSON);
-            httpPost.setEntity(entity);
-
-            return getEntityAndReleaseConnection(objectClass, httpPost);
-        } catch (JsonProcessingException e) {
-            // TODO : custom exception
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
-    public URI postForLocation(String url, Object object, String... params) {
-        HttpPost httpPost = new HttpPost(expandUrl(url, params));
-
-        try {
-            HttpEntity entity = new ByteArrayEntity(this.mapper.writeValueAsBytes(object), ContentType.APPLICATION_JSON);
-            httpPost.setEntity(entity);
-            HttpResponse httpResponse = this.httpClient.execute(httpPost);
-
-            Header location = httpResponse.getFirstHeader("Location");
-            if (location != null) {
-                return URI.create(location.getValue());
-            } else {
-                // TODO : error
-                throw new NullPointerException();
-            }
-        } catch (JsonProcessingException e) {
-            // TODO : custom exception
-            throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new TrelloHttpException(e);
-        } finally {
-            httpPost.releaseConnection();
-        }
-    }
-
-    private <T> T getEntityAndReleaseConnection(Class<T> objectClass, HttpRequestBase httpRequest) {
-        try {
-            HttpResponse httpResponse = this.httpClient.execute(httpRequest);
-
-            HttpEntity httpEntity = httpResponse.getEntity();
-            if (httpEntity != null) {
-                return this.mapper.readValue(httpEntity.getContent(), objectClass);
-            } else {
-                // TODO : error
-                throw new NullPointerException();
-            }
-        } catch (IOException e) {
-            throw new TrelloHttpException(e);
-        } finally {
-            httpRequest.releaseConnection();
-        }
-    }
+  }
 }
